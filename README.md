@@ -40,7 +40,7 @@ A Node.js backend application for Ghar Sathi, built with Express.js and MongoDB.
 
 3. Create a `.env` file in the root directory and add the following environment variables:
    ```env
-   PORT=3000
+   PORT=5000
    MONGODB_URI=your_mongodb_connection_string
    JWT_SECRET=your_jwt_secret_key
    JWT_EXPIRATION=24h

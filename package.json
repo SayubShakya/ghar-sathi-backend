@@ -1,7 +1,7 @@
 {
   "name": "blogappbackend",
   "version": "1.0.0",
-  "description": "",
+  "description": "Ghar Sathi- The Smart Space Rental Pathner",
   "main": "index.js",
   "scripts": {
     "start": "node index.js",

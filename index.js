@@ -1,26 +1,36 @@
+// index.js
 const express = require("express");
-const app = express();
+const cors = require("cors");
 const config = require("./src/configs/config");
 const db = require("./src/configs/db");
+const errorHandler = require("./src/middleware/errorMiddleware");
 
-// use cors
-const cors = require("cors");
+const app = express();
+
+// Connect to database
+db.connect().catch(console.error);
+
+// Basic middleware
 app.use(cors());
-
-// middleware to parse JSON request bodies
 app.use(express.json());
 
-// database connection
-db.connect();
-
-// routes
+// Routes
 const authRoutes = require("./src/routes/authRoutes");
+const userRoutes = require("./src/routes/userRoutes");
 
-app.use("/api/auth/v1", authRoutes);
-// app.use("/api/posts/v1", postRoutes);
+app.use("/api/auth", authRoutes);
+app.use("/api/users", userRoutes);
 
-const port = config.PORT;
+// 404 handler (must be before error handler)
+app.use((req, res) => {
+  res.status(404).json({ error: 'Route not found' });
+});
 
+// Error handler (must be last middleware)
+app.use(errorHandler);
+
+// Start server
+const port = config.PORT || 5000;
 app.listen(port, () => {
-  console.log(`Server is running on port ${port}`);
+  console.log(`Server running on port ${port}`);
 });
