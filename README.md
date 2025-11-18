@@ -1,6 +1,6 @@
 # Ghar Sathi Backend
 
-A Node.js backend application for Ghar Sathi, built with Express.js and MongoDB. This application provides authentication and user management APIs.
+A Node.js backend application for Ghar Sathi, built with Express.js and MongoDB. 
 
 ## Features
 
@@ -30,7 +30,7 @@ A Node.js backend application for Ghar Sathi, built with Express.js and MongoDB.
 1. Clone the repository:
    ```bash
    git clone <repository-url>
-   cd gharsathi-backend
+   cd ghar-sathi-backend
    ```
 
 2. Install dependencies:
@@ -50,7 +50,6 @@ A Node.js backend application for Ghar Sathi, built with Express.js and MongoDB.
    ```bash
    npm run dev
    ```
-   The server will start on `http://localhost:5000` by default.
 
 ## Environment Variables
 
@@ -59,17 +58,6 @@ A Node.js backend application for Ghar Sathi, built with Express.js and MongoDB.
 - `JWT_SECRET` - Secret key for JWT token generation
 - `JWT_EXPIRATION` - JWT token expiration time (e.g., '24h')
 
-## Development
-
-- To start the development server with auto-reload:
-  ```bash
-  npm run dev
-  ```
-
-- To start the production server:
-  ```bash
-  npm start
-  ```
 
 ## Project Structure
 
