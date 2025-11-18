@@ -50,88 +50,11 @@ A Node.js backend application for Ghar Sathi, built with Express.js and MongoDB.
    ```bash
    npm run dev
    ```
-   The server will start on `http://localhost:3000` by default.
-
-## API Endpoints
-
-### Authentication
-
-#### Register a new user
-- **URL**: `/api/auth/v1/register`
-- **Method**: `POST`
-- **Request Body**:
-  ```json
-  {
-    "username": "testuser",
-    "email": "test@example.com",
-    "password": "password123"
-  }
-  ```
-- **Success Response**:
-  ```json
-  {
-    "message": "User registered successfully",
-    "token": "jwt_token_here",
-    "user": {
-      "_id": "user_id",
-      "username": "testuser",
-      "email": "test@example.com"
-    }
-  }
-  ```
-
-#### User Login
-- **URL**: `/api/auth/v1/login`
-- **Method**: `POST`
-- **Request Body**:
-  ```json
-  {
-    "email": "test@example.com",
-    "password": "password123"
-  }
-  ```
-- **Success Response**:
-  ```json
-  {
-    "token": "jwt_token_here",
-    "user": {
-      "_id": "user_id",
-      "username": "testuser",
-      "email": "test@example.com"
-    }
-  }
-  ```
-
-### Users
-
-#### Get all users
-- **URL**: `/api/auth/v1/users`
-- **Method**: `GET`
-- **Headers**: `Authorization: Bearer <token>`
-- **Success Response**: Array of user objects
-
-#### Get user by ID
-- **URL**: `/api/auth/v1/users/:id`
-- **Method**: `GET`
-- **Headers**: `Authorization: Bearer <token>`
-- **Success Response**: User object
-
-#### Update user
-- **URL**: `/api/auth/v1/users/:id`
-- **Method**: `PUT`
-- **Headers**: `Authorization: Bearer <token>`
-- **Request Body**: User fields to update
-- **Success Response**: Updated user object
-
-#### Delete user
-- **URL**: `/api/auth/v1/users/:id`
-- **Method**: `DELETE`
-- **Headers**: `Authorization: Bearer <token>`
-- **Success Response**: Confirmation message
+   The server will start on `http://localhost:5000` by default.
 
 ## Environment Variables
 
-- `PORT` - Port on which the server will run (default: 3000)
+- `PORT` - Port on which the server will run (default: 5000)
 - `MONGODB_URI` - MongoDB connection string
 - `JWT_SECRET` - Secret key for JWT token generation
 - `JWT_EXPIRATION` - JWT token expiration time (e.g., '24h')
@@ -163,14 +86,4 @@ gharsathi-backend/
 └── package.json       # Project dependencies and scripts
 ```
 
-## Contributing
 
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
-
-## License
-
-This project is licensed under the ISC License - see the [LICENSE](LICENSE) file for details.
