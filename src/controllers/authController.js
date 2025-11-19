@@ -1,5 +1,4 @@
 // src/controllers/authController.js
-const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const User = require("../models/userModel");
 const config = require("../configs/config");
@@ -7,15 +6,25 @@ const config = require("../configs/config");
 // Register a new user
 const register = async (req, res, next) => {
   try {
-    const { username, email, password } = req.body;
+    const {
+      first_name,
+      last_name,
+      email_address,
+      password,
+      phone_number,
+      role_id,
+      profile_picture_image,
+    } = req.body;
 
-    if (!username || !email || !password) {
-      const error = new Error('All fields are required');
+    if (!first_name || !last_name || !email_address || !password || !role_id) {
+      const error = new Error('first_name, last_name, email_address, password and role_id are required');
       error.statusCode = 400;
       throw error;
     }
 
-    const existingUser = await User.findOne({ email: email.toLowerCase().trim() });
+    const normalizedEmail = email_address.toLowerCase().trim();
+
+    const existingUser = await User.findOne({ email_address: normalizedEmail });
     if (existingUser) {
       const error = new Error('User already exists');
       error.statusCode = 400;
@@ -23,9 +32,13 @@ const register = async (req, res, next) => {
     }
 
     const user = new User({
-      username: username.trim(),
-      email: email.toLowerCase().trim(),
-      password
+      first_name: first_name.trim(),
+      last_name: last_name.trim(),
+      email_address: normalizedEmail,
+      password_hash: password,
+      phone_number: phone_number ? phone_number.trim() : undefined,
+      role_id,
+      profile_picture_image: profile_picture_image?.trim?.() ? profile_picture_image.trim() : profile_picture_image,
     });
 
     await user.save();
@@ -34,7 +47,8 @@ const register = async (req, res, next) => {
       expiresIn: config.JWT_EXPIRATION,
     });
 
-    const { password: _, ...userWithoutPassword } = user.toObject();
+    const userWithoutPassword = user.toObject();
+    delete userWithoutPassword.password_hash;
 
     res.status(201).json({
       message: "User registered successfully",
@@ -52,20 +66,22 @@ const register = async (req, res, next) => {
 // User login
 const login = async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { email_address, password } = req.body;
 
-    if (!email || !password) {
+    if (!email_address || !password) {
       return res.status(400).json({ error: "Email and password are required" });
     }
 
+    const normalizedEmail = email_address.toLowerCase().trim();
+
     // Find user by email (case-insensitive) and include password field
-    const user = await User.findOne({ email: email.toLowerCase().trim() }).select('+password');
+    const user = await User.findOne({ email_address: normalizedEmail }).select('+password_hash');
     if (!user) {
       return res.status(400).json({ error: "Invalid email or password" });
     }
 
     // Check password
-    const isMatch = await bcrypt.compare(password, user.password);
+    const isMatch = await user.comparePassword(password);
     if (!isMatch) {
       return res.status(400).json({ error: "Invalid email or password" });
     }
@@ -76,7 +92,8 @@ const login = async (req, res) => {
     });
 
     // Exclude password from response
-    const { password: _, ...userWithoutPassword } = user.toObject();
+    const userWithoutPassword = user.toObject();
+    delete userWithoutPassword.password_hash;
 
     res.status(200).json({
       message: "Login successful",

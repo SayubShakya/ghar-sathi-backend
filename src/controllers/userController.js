@@ -4,7 +4,10 @@ const bcrypt = require("bcryptjs");
 // Get all users
 const getAllUsers = async (req, res) => {
   try {
-    const users = await User.find().select('-password');
+    const includeInactive = req.query.includeInactive === "true";
+    const filter = includeInactive ? {} : { is_active: true };
+
+    const users = await User.find(filter).sort({ created_date: -1 });
     res.status(200).json(users);
   } catch (error) {
     console.error("Error fetching users:", error);
@@ -15,7 +18,13 @@ const getAllUsers = async (req, res) => {
 // Get single user by ID
 const getUserById = async (req, res) => {
   try {
-    const user = await User.findById(req.params.id).select('-password');
+    const includeInactive = req.query.includeInactive === "true";
+    const filter = { _id: req.params.id };
+    if (!includeInactive) {
+      filter.is_active = true;
+    }
+
+    const user = await User.findOne(filter);
     if (!user) {
       return res.status(404).json({ error: "User not found" });
     }
@@ -29,21 +38,39 @@ const getUserById = async (req, res) => {
 // Update user by ID
 const updateUser = async (req, res) => {
   try {
-    const { username, email, password } = req.body;
+    const {
+      first_name,
+      last_name,
+      email_address,
+      password,
+      phone_number,
+      role_id,
+      profile_picture_image,
+      is_active,
+    } = req.body;
     const updates = {};
 
-    if (username) updates.username = username.trim();
-    if (email) updates.email = email.toLowerCase().trim();
+    if (first_name) updates.first_name = first_name.trim();
+    if (last_name) updates.last_name = last_name.trim();
+    if (email_address) updates.email_address = email_address.toLowerCase().trim();
+    if (phone_number !== undefined) updates.phone_number = phone_number?.trim?.() ? phone_number.trim() : phone_number;
+    if (role_id) updates.role_id = role_id;
+    if (profile_picture_image !== undefined) {
+      updates.profile_picture_image = profile_picture_image?.trim?.()
+        ? profile_picture_image.trim()
+        : profile_picture_image;
+    }
+    if (typeof is_active === "boolean") updates.is_active = is_active;
     if (password) {
       const salt = await bcrypt.genSalt(10);
-      updates.password = await bcrypt.hash(password, salt);
+      updates.password_hash = await bcrypt.hash(password, salt);
     }
 
     const user = await User.findByIdAndUpdate(
       req.params.id,
       { $set: updates },
       { new: true, runValidators: true }
-    ).select('-password');
+    );
 
     if (!user) {
       return res.status(404).json({ error: "User not found" });
@@ -65,11 +92,20 @@ const updateUser = async (req, res) => {
 // Delete user by ID
 const deleteUser = async (req, res) => {
   try {
-    const user = await User.findByIdAndDelete(req.params.id);
+    const user = await User.findById(req.params.id);
+
     if (!user) {
       return res.status(404).json({ error: "User not found" });
     }
-    res.status(200).json({ message: "User deleted successfully" });
+
+    if (!user.is_active) {
+      return res.status(200).json({ message: "User already inactive" });
+    }
+
+    user.is_active = false;
+    await user.save();
+
+    res.status(200).json({ message: "User soft-deleted successfully" });
   } catch (error) {
     console.error("Error deleting user:", error);
     res.status(500).json({ error: "Server error" });

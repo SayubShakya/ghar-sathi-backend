@@ -1,61 +1,94 @@
-const mongoose = require('mongoose');
-const bcrypt = require('bcryptjs');
+const mongoose = require("mongoose");
+const bcrypt = require("bcryptjs");
 
-const userSchema = new mongoose.Schema({
-  username: {
-    type: String,
-    required: [true, 'Username is required'],  // Better error message
-    trim: true,
-    minlength: [3, 'Username must be at least 3 characters long']  // Validation with message
+const userSchema = new mongoose.Schema(
+  {
+    first_name: {
+      type: String,
+      required: [true, "First name is required"],
+      trim: true,
+      minlength: [2, "First name must be at least 2 characters"],
+    },
+    last_name: {
+      type: String,
+      required: [true, "Last name is required"],
+      trim: true,
+      minlength: [2, "Last name must be at least 2 characters"],
+    },
+    email_address: {
+      type: String,
+      required: [true, "Email address is required"],
+      unique: true,
+      trim: true,
+      lowercase: true,
+      match: [/^\S+@\S+\.\S+$/, "Please enter a valid email address"],
+    },
+    password_hash: {
+      type: String,
+      required: [true, "Password is required"],
+      minlength: [8, "Password must be at least 8 characters long"],
+      select: false,
+    },
+    phone_number: {
+      type: String,
+      trim: true,
+    },
+    role_id: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Role",
+      required: [true, "Role is required"],
+    },
+    profile_picture_image: {
+      type: String,
+      trim: true,
+    },
+    is_active: {
+      type: Boolean,
+      default: true,
+    },
   },
-  email: {
-    type: String,
-    required: [true, 'Email is required'],
-    unique: true,
-    trim: true,
-    lowercase: true,
-    match: [/^\S+@\S+\.\S+$/, 'Please enter a valid email address']
-  },
-  password: {
-    type: String,
-    required: [true, 'Password is required'],
-    minlength: [8, 'Password must be at least 8 characters long'],
-    select: false  // Prevents password from being returned in queries
+  {
+    timestamps: { createdAt: "created_date", updatedAt: "updated_date" },
+    toJSON: { virtuals: true },
+    toObject: { virtuals: true },
   }
-}, { 
-  timestamps: true,
-  toJSON: { virtuals: true },  // Include virtuals when converting to JSON
-  toObject: { virtuals: true } // Include virtuals when converting to object
+);
+
+userSchema.virtual("id").get(function () {
+  return this._id.toHexString();
 });
 
-// Pre-save hook for password hashing
-userSchema.pre('save', async function(next) {
-  if (!this.isModified('password')) return next();
-  
+userSchema.set("toJSON", {
+  virtuals: true,
+  transform: (_, ret) => {
+    ret.id = ret._id;
+    delete ret._id;
+    delete ret.__v;
+    delete ret.password_hash;
+    return ret;
+  },
+});
+
+userSchema.pre("save", async function (next) {
+  if (!this.isModified("password_hash")) return next();
+
   try {
     const salt = await bcrypt.genSalt(10);
-    this.password = await bcrypt.hash(this.password, salt);
+    this.password_hash = await bcrypt.hash(this.password_hash, salt);
     next();
   } catch (error) {
     next(error);
   }
 });
 
-// Method to compare password
-userSchema.methods.comparePassword = async function(candidatePassword) {
-  return await bcrypt.compare(candidatePassword, this.password);
+userSchema.methods.comparePassword = async function (candidatePassword) {
+  return await bcrypt.compare(candidatePassword, this.password_hash);
 };
 
-// Virtual for user's full name (example)
-userSchema.virtual('fullName').get(function() {
-  return `${this.username}`;
-});
-
-// Static method example (if needed)
-userSchema.statics.findByEmail = function(email) {
-  return this.findOne({ email }).select('+password');
+userSchema.statics.findByEmailAddress = function (emailAddress) {
+  return this.findOne({ email_address: emailAddress }).select("+password_hash");
 };
 
-const User = mongoose.model('User', userSchema);
+const User = mongoose.model("User", userSchema);
 
 module.exports = User;
