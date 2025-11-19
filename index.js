@@ -17,9 +17,11 @@ app.use(express.json());
 // Routes
 const authRoutes = require("./src/routes/authRoutes");
 const userRoutes = require("./src/routes/userRoutes");
+const roleRoutes = require("./src/routes/roleRoutes");
 
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
+app.use("/api/roles", roleRoutes);
 
 // 404 handler (must be before error handler)
 app.use((req, res) => {
