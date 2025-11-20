@@ -1,5 +1,6 @@
 const User = require("../models/userModel");
 const bcrypt = require("bcryptjs");
+const formatUserWithRole = require("../utils/formatUserWithRole");
 
 // Get all users
 const getAllUsers = async (req, res) => {
@@ -7,8 +8,13 @@ const getAllUsers = async (req, res) => {
     const includeInactive = req.query.includeInactive === "true";
     const filter = includeInactive ? {} : { is_active: true };
 
-    const users = await User.find(filter).sort({ created_date: -1 });
-    res.status(200).json(users);
+    const users = await User.find(filter)
+      .sort({ created_date: -1 })
+      .populate("role_id", "name");
+
+    const formattedUsers = users.map(formatUserWithRole);
+
+    res.status(200).json(formattedUsers);
   } catch (error) {
     console.error("Error fetching users:", error);
     res.status(500).json({ error: "Server error" });
@@ -24,11 +30,11 @@ const getUserById = async (req, res) => {
       filter.is_active = true;
     }
 
-    const user = await User.findOne(filter);
+    const user = await User.findOne(filter).populate("role_id", "name");
     if (!user) {
       return res.status(404).json({ error: "User not found" });
     }
-    res.status(200).json(user);
+    res.status(200).json(formatUserWithRole(user));
   } catch (error) {
     console.error("Error fetching user:", error);
     res.status(500).json({ error: "Server error" });
@@ -70,7 +76,7 @@ const updateUser = async (req, res) => {
       req.params.id,
       { $set: updates },
       { new: true, runValidators: true }
-    );
+    ).populate("role_id", "name");
 
     if (!user) {
       return res.status(404).json({ error: "User not found" });
@@ -78,7 +84,7 @@ const updateUser = async (req, res) => {
 
     res.status(200).json({
       message: "User updated successfully",
-      user
+      user: formatUserWithRole(user)
     });
   } catch (error) {
     console.error("Error updating user:", error);

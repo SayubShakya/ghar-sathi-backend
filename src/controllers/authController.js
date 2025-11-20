@@ -2,6 +2,7 @@
 const jwt = require("jsonwebtoken");
 const User = require("../models/userModel");
 const config = require("../configs/config");
+const formatUserWithRole = require("../utils/formatUserWithRole");
 
 // Register a new user
 const register = async (req, res, next) => {
@@ -43,17 +44,16 @@ const register = async (req, res, next) => {
 
     await user.save();
 
+    await user.populate("role_id", "name");
+
     const token = jwt.sign({ id: user._id }, config.JWT_SECRET, {
       expiresIn: config.JWT_EXPIRATION,
     });
 
-    const userWithoutPassword = user.toObject();
-    delete userWithoutPassword.password_hash;
-
     res.status(201).json({
       message: "User registered successfully",
       token,
-      user: userWithoutPassword,
+      user: formatUserWithRole(user),
     });
   } catch (error) {
     if (!error.statusCode) {
@@ -86,19 +86,17 @@ const login = async (req, res) => {
       return res.status(400).json({ error: "Invalid email or password" });
     }
 
+    await user.populate("role_id", "name");
+
     // Generate JWT token
     const token = jwt.sign({ id: user._id }, config.JWT_SECRET, {
       expiresIn: config.JWT_EXPIRATION,
     });
 
-    // Exclude password from response
-    const userWithoutPassword = user.toObject();
-    delete userWithoutPassword.password_hash;
-
     res.status(200).json({
       message: "Login successful",
       token,
-      user: userWithoutPassword,
+      user: formatUserWithRole(user),
     });
   } catch (error) {
     console.error("Error logging in user:", error);
