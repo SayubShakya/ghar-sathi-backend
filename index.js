@@ -18,10 +18,14 @@ app.use(express.json());
 const authRoutes = require("./src/routes/authRoutes");
 const userRoutes = require("./src/routes/userRoutes");
 const roleRoutes = require("./src/routes/roleRoutes");
+const locationRoutes = require("./src/routes/locationRoutes");
+const propertyTypeRoutes = require("./src/routes/propertyTypeRoutes");
 
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/roles", roleRoutes);
+app.use("/api/locations", locationRoutes);
+app.use("/api/property-types", propertyTypeRoutes);
 
 // 404 handler (must be before error handler)
 app.use((req, res) => {
