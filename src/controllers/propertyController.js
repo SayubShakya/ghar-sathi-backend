@@ -2,6 +2,7 @@ const Property = require("../models/propertyModel");
 const Location = require("../models/locationModel");
 const PropertyType = require("../models/propertyTypeModel");
 const User = require("../models/userModel");
+const Status = require("../models/statusModel");
 
 const validateObjectId = async (Model, id, label) => {
   if (!id) {
@@ -31,14 +32,16 @@ const createProperty = async (req, res) => {
       is_active,
     } = req.body;
 
-    if (!property_title || !rent || !location_id || !user_id || !property_types_id) {
+    if (!property_title || !rent || !location_id || !status || !user_id || !property_types_id) {
       return res.status(400).json({
-        error: "property_title, rent, location_id, user_id, and property_types_id are required",
+        error:
+          "property_title, rent, location_id, status, user_id, and property_types_id are required",
       });
     }
 
     await Promise.all([
       validateObjectId(Location, location_id, "Location"),
+      validateObjectId(Status, status, "Status"),
       validateObjectId(User, user_id, "User"),
       validateObjectId(PropertyType, property_types_id, "Property type"),
     ]);
@@ -51,7 +54,7 @@ const createProperty = async (req, res) => {
       cover_image_url: cover_image_url?.trim?.() ? cover_image_url.trim() : cover_image_url,
       rent,
       location_id,
-      status: status?.trim?.() ? status.trim() : undefined,
+      status,
       user_id,
       property_types_id,
       is_active,
@@ -61,6 +64,7 @@ const createProperty = async (req, res) => {
       { path: "location_id" },
       { path: "user_id", select: "first_name last_name email_address" },
       { path: "property_types_id" },
+      { path: "status" },
     ]);
 
     res.status(201).json({
@@ -94,6 +98,7 @@ const getAllProperties = async (req, res) => {
       .populate({ path: "location_id" })
       .populate({ path: "user_id", select: "first_name last_name email_address" })
       .populate({ path: "property_types_id" })
+      .populate({ path: "status" })
       .sort({ created_date: -1 });
 
     res.status(200).json(properties);
@@ -115,7 +120,8 @@ const getPropertyById = async (req, res) => {
     const property = await Property.findOne(filter)
       .populate({ path: "location_id" })
       .populate({ path: "user_id", select: "first_name last_name email_address" })
-      .populate({ path: "property_types_id" });
+      .populate({ path: "property_types_id" })
+      .populate({ path: "status" });
 
     if (!property) {
       return res.status(404).json({ error: "Property not found" });
@@ -155,7 +161,7 @@ const updateProperty = async (req, res) => {
       updates.cover_image_url = cover_image_url?.trim?.() ? cover_image_url.trim() : cover_image_url;
     }
     if (rent !== undefined) updates.rent = rent;
-    if (status !== undefined) updates.status = status?.trim?.() ? status.trim() : status;
+    if (status !== undefined) updates.status = status;
     if (typeof is_active === "boolean") updates.is_active = is_active;
 
     const validationPromises = [];
@@ -173,6 +179,10 @@ const updateProperty = async (req, res) => {
       );
       updates.property_types_id = property_types_id;
     }
+    if (status) {
+      validationPromises.push(validateObjectId(Status, status, "Status"));
+      updates.status = status;
+    }
 
     await Promise.all(validationPromises);
 
@@ -183,7 +193,8 @@ const updateProperty = async (req, res) => {
     )
       .populate({ path: "location_id" })
       .populate({ path: "user_id", select: "first_name last_name email_address" })
-      .populate({ path: "property_types_id" });
+      .populate({ path: "property_types_id" })
+      .populate({ path: "status" });
 
     if (!property) {
       return res.status(404).json({ error: "Property not found" });

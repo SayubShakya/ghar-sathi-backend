@@ -21,6 +21,7 @@ const roleRoutes = require("./src/routes/roleRoutes");
 const locationRoutes = require("./src/routes/locationRoutes");
 const propertyTypeRoutes = require("./src/routes/propertyTypeRoutes");
 const propertyRoutes = require("./src/routes/propertyRoutes");
+const statusRoutes = require("./src/routes/statusRoutes");
 
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
@@ -28,6 +29,7 @@ app.use("/api/roles", roleRoutes);
 app.use("/api/locations", locationRoutes);
 app.use("/api/property-types", propertyTypeRoutes);
 app.use("/api/properties", propertyRoutes);
+app.use("/api/statuses", statusRoutes);
 
 // 404 handler (must be before error handler)
 app.use((req, res) => {

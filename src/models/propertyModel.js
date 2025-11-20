@@ -27,14 +27,9 @@ const propertySchema = new mongoose.Schema(
       required: [true, "Location is required"],
     },
     status: {
-      type: String,
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Status",
       required: [true, "Status is required"],
-      trim: true,
-      enum: {
-        values: ["available", "occupied", "maintenance"],
-        message: "Status must be available, occupied, or maintenance",
-      },
-      default: "available",
     },
     user_id: {
       type: mongoose.Schema.Types.ObjectId,
