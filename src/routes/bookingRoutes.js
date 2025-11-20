@@ -6,13 +6,14 @@ const {
   updateBooking,
   deleteBooking,
 } = require("../controllers/bookingController");
+const { protect, authorizeRoles } = require("../middleware/authMiddleware");
 
 const router = express.Router();
 
-router.get("/", getAllBookings);
-router.get("/:id", getBookingById);
-router.post("/", createBooking);
-router.patch("/:id", updateBooking);
-router.delete("/:id", deleteBooking);
+router.get("/", protect, getAllBookings);
+router.get("/:id", protect, getBookingById);
+router.post("/", protect, authorizeRoles("ROOM_SEEKER"), createBooking);
+router.patch("/:id", protect, authorizeRoles("ROOM_SEEKER"), updateBooking);
+router.delete("/:id", protect, authorizeRoles("ROOM_SEEKER"), deleteBooking);
 
 module.exports = router;

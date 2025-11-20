@@ -6,13 +6,14 @@ const {
   updateLocation,
   deleteLocation,
 } = require("../controllers/locationController");
+const { protect, authorizeRoles } = require("../middleware/authMiddleware");
 
 const router = express.Router();
 
-router.get("/", getAllLocations);
-router.get("/:id", getLocationById);
-router.post("/", createLocation);
-router.patch("/:id", updateLocation);
-router.delete("/:id", deleteLocation);
+router.get("/", protect, authorizeRoles("ADMIN"), getAllLocations);
+router.get("/:id", protect, authorizeRoles("ADMIN"), getLocationById);
+router.post("/", protect, authorizeRoles("ADMIN"), createLocation);
+router.patch("/:id", protect, authorizeRoles("ADMIN"), updateLocation);
+router.delete("/:id", protect, authorizeRoles("ADMIN"), deleteLocation);
 
 module.exports = router;

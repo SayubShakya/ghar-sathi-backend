@@ -7,6 +7,13 @@ const DAY_IN_MS = 24 * 60 * 60 * 1000;
 const STATUS_AVAILABLE = "AVAILABLE";
 const STATUS_RESERVED = "BOOKING";
 
+const getCurrentUserIdFromReq = (req) => {
+  if (!req || !req.user || !req.user._id) {
+    return null;
+  }
+  return req.user._id.toString();
+};
+
 const validateObjectId = async (Model, id, label) => {
   if (!id) {
     throw new Error(`${label} is required`);
@@ -94,15 +101,29 @@ const createBooking = async (req, res) => {
   try {
     const { property_id, user_id, start_date, end_date, is_active } = req.body;
 
-    if (!property_id || !user_id || !start_date || !end_date) {
+    const currentUserId = getCurrentUserIdFromReq(req);
+    const isAdmin = req.isAdmin;
+    const isRoomSeeker = req.isRoomSeeker;
+
+    if (!isAdmin && !isRoomSeeker) {
+      return res.status(403).json({ error: "Only room seekers can create bookings" });
+    }
+
+    const effectiveUserId = isAdmin ? user_id || currentUserId : currentUserId;
+
+    if (!property_id || !start_date || !end_date) {
       return res.status(400).json({
-        error: "property_id, user_id, start_date, and end_date are required",
+        error: "property_id, start_date, and end_date are required",
       });
+    }
+
+    if (!effectiveUserId) {
+      return res.status(400).json({ error: "User is required for booking" });
     }
 
     await Promise.all([
       validateObjectId(Property, property_id, "Property"),
-      validateObjectId(User, user_id, "User"),
+      validateObjectId(User, effectiveUserId, "User"),
     ]);
 
     const propertyDoc = await Property.findById(property_id)
@@ -122,7 +143,7 @@ const createBooking = async (req, res) => {
 
     const booking = await Booking.create({
       property_id,
-      user_id,
+      user_id: effectiveUserId,
       start_date: parsedStartDate,
       end_date: parsedEndDate,
       status_id: reservedStatus._id,
@@ -171,7 +192,26 @@ const getAllBookings = async (req, res) => {
       .populate({ path: "status_id" })
       .sort({ created_date: -1 });
 
-    res.status(200).json(bookings);
+    const currentUserId = getCurrentUserIdFromReq(req);
+    let filteredBookings = bookings;
+
+    if (req.isRoomSeeker && !req.isAdmin) {
+      filteredBookings = bookings.filter((b) => {
+        const bookingUserId =
+          b.user_id && b.user_id._id ? b.user_id._id.toString() : b.user_id?.toString?.();
+        return currentUserId && bookingUserId === currentUserId;
+      });
+    } else if (req.isLandlord && !req.isAdmin) {
+      filteredBookings = bookings.filter((b) => {
+        const propertyOwnerId =
+          b.property_id && b.property_id.user_id && b.property_id.user_id._id
+            ? b.property_id.user_id._id.toString()
+            : b.property_id?.user_id?.toString?.();
+        return currentUserId && propertyOwnerId === currentUserId;
+      });
+    }
+
+    res.status(200).json(filteredBookings);
   } catch (error) {
     console.error("Error fetching bookings:", error);
     res.status(500).json({ error: "Server error" });
@@ -196,6 +236,37 @@ const getBookingById = async (req, res) => {
       return res.status(404).json({ error: "Booking not found" });
     }
 
+    if (!req.isAdmin) {
+      const currentUserId = getCurrentUserIdFromReq(req);
+      if (!currentUserId) {
+        return res.status(401).json({ error: "Not authorized" });
+      }
+
+      if (req.isRoomSeeker) {
+        const bookingUserId =
+          booking.user_id && booking.user_id._id
+            ? booking.user_id._id.toString()
+            : booking.user_id?.toString?.();
+        if (!bookingUserId || bookingUserId !== currentUserId) {
+          return res
+            .status(403)
+            .json({ error: "You are not allowed to access this booking" });
+        }
+      } else if (req.isLandlord) {
+        const propertyOwnerId =
+          booking.property_id && booking.property_id.user_id && booking.property_id.user_id._id
+            ? booking.property_id.user_id._id.toString()
+            : booking.property_id?.user_id?.toString?.();
+        if (!propertyOwnerId || propertyOwnerId !== currentUserId) {
+          return res
+            .status(403)
+            .json({ error: "You are not allowed to access this booking" });
+        }
+      } else {
+        return res.status(403).json({ error: "Forbidden" });
+      }
+    }
+
     res.status(200).json(booking);
   } catch (error) {
     console.error("Error fetching booking:", error);
@@ -216,7 +287,8 @@ const updateBooking = async (req, res) => {
 
     const validationPromises = [];
     if (property_id) validationPromises.push(validateObjectId(Property, property_id, "Property"));
-    if (user_id) validationPromises.push(validateObjectId(User, user_id, "User"));
+    if (user_id && req.isAdmin)
+      validationPromises.push(validateObjectId(User, user_id, "User"));
 
     await Promise.all(validationPromises);
 
@@ -231,7 +303,7 @@ const updateBooking = async (req, res) => {
       ensurePropertyIsAvailable(newPropertyDoc);
       booking.property_id = property_id;
     }
-    if (user_id) booking.user_id = user_id;
+    if (user_id && req.isAdmin) booking.user_id = user_id;
     if (start_date !== undefined) booking.start_date = parseDate(start_date, "start_date");
     if (end_date !== undefined) booking.end_date = parseDate(end_date, "end_date");
     if (typeof is_active === "boolean") booking.is_active = is_active;

@@ -4,6 +4,13 @@ const PropertyType = require("../models/propertyTypeModel");
 const User = require("../models/userModel");
 const Status = require("../models/statusModel");
 
+const getCurrentUserIdFromReq = (req) => {
+  if (!req || !req.user || !req.user._id) {
+    return null;
+  }
+  return req.user._id.toString();
+};
+
 const validateObjectId = async (Model, id, label) => {
   if (!id) {
     throw new Error(`${label} is required`);
@@ -32,7 +39,11 @@ const createProperty = async (req, res) => {
       is_active,
     } = req.body;
 
-    if (!property_title || !rent || !location_id || !status || !user_id || !property_types_id) {
+    const isAdmin = req.isAdmin;
+    const currentUserId = getCurrentUserIdFromReq(req);
+    const ownerId = isAdmin ? (user_id || currentUserId) : currentUserId;
+
+    if (!property_title || !rent || !location_id || !status || !ownerId || !property_types_id) {
       return res.status(400).json({
         error:
           "property_title, rent, location_id, status, user_id, and property_types_id are required",
@@ -42,7 +53,7 @@ const createProperty = async (req, res) => {
     await Promise.all([
       validateObjectId(Location, location_id, "Location"),
       validateObjectId(Status, status, "Status"),
-      validateObjectId(User, user_id, "User"),
+      validateObjectId(User, ownerId, "User"),
       validateObjectId(PropertyType, property_types_id, "Property type"),
     ]);
 
@@ -55,7 +66,7 @@ const createProperty = async (req, res) => {
       rent,
       location_id,
       status,
-      user_id,
+      user_id: ownerId,
       property_types_id,
       is_active,
     });
@@ -94,6 +105,14 @@ const getAllProperties = async (req, res) => {
     const includeInactive = req.query.includeInactive === "true";
     const filter = includeInactive ? {} : { is_active: true };
 
+    if (req.isLandlord && !req.isAdmin) {
+      const currentUserId = getCurrentUserIdFromReq(req);
+      if (!currentUserId) {
+        return res.status(401).json({ error: "Not authorized" });
+      }
+      filter.user_id = currentUserId;
+    }
+
     const properties = await Property.find(filter)
       .populate({ path: "location_id" })
       .populate({ path: "user_id", select: "first_name last_name email_address" })
@@ -127,6 +146,22 @@ const getPropertyById = async (req, res) => {
       return res.status(404).json({ error: "Property not found" });
     }
 
+    if (req.isLandlord && !req.isAdmin) {
+      const currentUserId = getCurrentUserIdFromReq(req);
+      if (!currentUserId) {
+        return res.status(401).json({ error: "Not authorized" });
+      }
+      const ownerId =
+        property.user_id && property.user_id._id
+          ? property.user_id._id.toString()
+          : property.user_id?.toString?.();
+      if (!ownerId || ownerId !== currentUserId) {
+        return res
+          .status(403)
+          .json({ error: "You are not allowed to access this property" });
+      }
+    }
+
     res.status(200).json(property);
   } catch (error) {
     console.error("Error fetching property:", error);
@@ -149,6 +184,28 @@ const updateProperty = async (req, res) => {
       is_active,
     } = req.body;
 
+    const existingProperty = await Property.findById(req.params.id);
+
+    if (!existingProperty) {
+      return res.status(404).json({ error: "Property not found" });
+    }
+
+    if (!req.isAdmin) {
+      const currentUserId = getCurrentUserIdFromReq(req);
+      if (!currentUserId) {
+        return res.status(401).json({ error: "Not authorized" });
+      }
+      const ownerId =
+        existingProperty.user_id && existingProperty.user_id._id
+          ? existingProperty.user_id._id.toString()
+          : existingProperty.user_id?.toString?.();
+      if (!ownerId || ownerId !== currentUserId) {
+        return res
+          .status(403)
+          .json({ error: "You are not allowed to modify this property" });
+      }
+    }
+
     const updates = {};
 
     if (property_title) updates.property_title = property_title.trim();
@@ -169,7 +226,7 @@ const updateProperty = async (req, res) => {
       validationPromises.push(validateObjectId(Location, location_id, "Location"));
       updates.location_id = location_id;
     }
-    if (user_id) {
+    if (user_id && req.isAdmin) {
       validationPromises.push(validateObjectId(User, user_id, "User"));
       updates.user_id = user_id;
     }
@@ -223,6 +280,22 @@ const deleteProperty = async (req, res) => {
 
     if (!property) {
       return res.status(404).json({ error: "Property not found" });
+    }
+
+    if (!req.isAdmin) {
+      const currentUserId = getCurrentUserIdFromReq(req);
+      if (!currentUserId) {
+        return res.status(401).json({ error: "Not authorized" });
+      }
+      const ownerId =
+        property.user_id && property.user_id._id
+          ? property.user_id._id.toString()
+          : property.user_id?.toString?.();
+      if (!ownerId || ownerId !== currentUserId) {
+        return res
+          .status(403)
+          .json({ error: "You are not allowed to delete this property" });
+      }
     }
 
     if (!property.is_active) {
