@@ -24,6 +24,47 @@ const validateObjectId = async (Model, id, label) => {
   }
 };
 
+const findStatusByName = async (name) => {
+  const doc = await Status.findOne({ name: new RegExp("^" + name + "$", "i") }).select(
+    "_id name"
+  );
+  if (!doc) {
+    const error = new Error("Status '" + name + "' not found. Please seed it first.");
+    error.statusCode = 500;
+    throw error;
+  }
+  return doc;
+};
+
+const parseNumber = (value, label) => {
+  if (value === undefined || value === null || value === "") {
+    return undefined;
+  }
+  const num = Number(value);
+  if (!Number.isFinite(num)) {
+    const error = new Error(`${label} must be a valid number`);
+    error.statusCode = 400;
+    throw error;
+  }
+  return num;
+};
+
+const toRadians = (deg) => (deg * Math.PI) / 180;
+
+const calculateDistanceKm = (lat1, lon1, lat2, lon2) => {
+  const R = 6371; // Earth radius in km
+  const dLat = toRadians(lat2 - lat1);
+  const dLon = toRadians(lon2 - lon1);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRadians(lat1)) *
+      Math.cos(toRadians(lat2)) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+};
+
 // Create property
 const createProperty = async (req, res) => {
   try {
@@ -33,7 +74,6 @@ const createProperty = async (req, res) => {
       cover_image_url,
       rent,
       location_id,
-      status,
       user_id,
       property_types_id,
       is_active,
@@ -43,19 +83,20 @@ const createProperty = async (req, res) => {
     const currentUserId = getCurrentUserIdFromReq(req);
     const ownerId = isAdmin ? (user_id || currentUserId) : currentUserId;
 
-    if (!property_title || !rent || !location_id || !status || !ownerId || !property_types_id) {
+    if (!property_title || !rent || !location_id || !ownerId || !property_types_id) {
       return res.status(400).json({
         error:
-          "property_title, rent, location_id, status, user_id, and property_types_id are required",
+          "property_title, rent, location_id, user_id, and property_types_id are required",
       });
     }
 
     await Promise.all([
       validateObjectId(Location, location_id, "Location"),
-      validateObjectId(Status, status, "Status"),
       validateObjectId(User, ownerId, "User"),
       validateObjectId(PropertyType, property_types_id, "Property type"),
     ]);
+
+    const availableStatus = await findStatusByName("AVAILABLE");
 
     const property = await Property.create({
       property_title: property_title.trim(),
@@ -65,7 +106,7 @@ const createProperty = async (req, res) => {
       cover_image_url: cover_image_url?.trim?.() ? cover_image_url.trim() : cover_image_url,
       rent,
       location_id,
-      status,
+      status: availableStatus._id,
       user_id: ownerId,
       property_types_id,
       is_active,
@@ -113,16 +154,157 @@ const getAllProperties = async (req, res) => {
       filter.user_id = currentUserId;
     }
 
+    const minRent = parseNumber(req.query.minRent, "minRent");
+    const maxRent = parseNumber(req.query.maxRent, "maxRent");
+
+    if (minRent !== undefined || maxRent !== undefined) {
+      filter.rent = {};
+      if (minRent !== undefined) filter.rent.$gte = minRent;
+      if (maxRent !== undefined) filter.rent.$lte = maxRent;
+    }
+
+    if (req.query.propertyTypeId) {
+      filter.property_types_id = req.query.propertyTypeId;
+    }
+
+    if (req.query.status) {
+      const statusDoc = await findStatusByName(req.query.status);
+      filter.status = statusDoc._id;
+    }
+
+    const sortBy = (req.query.sortBy || "").toLowerCase();
+    const sortOrder = (req.query.sortOrder || "desc").toLowerCase();
+    const sortDirection = sortOrder === "asc" ? 1 : -1;
+
+    let sort = { created_date: -1 };
+    if (sortBy === "price") {
+      sort = { rent: sortDirection };
+    }
+
     const properties = await Property.find(filter)
       .populate({ path: "location_id" })
       .populate({ path: "user_id", select: "first_name last_name email_address" })
       .populate({ path: "property_types_id" })
       .populate({ path: "status" })
-      .sort({ created_date: -1 });
+      .sort(sort);
 
-    res.status(200).json(properties);
+    let results = properties.map((p) => p.toObject());
+
+    const street = req.query.street?.trim?.();
+    const area = req.query.area?.trim?.();
+    const city = req.query.city?.trim?.();
+    const postalCode = req.query.postalCode?.trim?.();
+
+    if (street) {
+      const streetLower = street.toLowerCase();
+      results = results.filter((p) => {
+        const loc = p.location_id;
+        return (
+          loc &&
+          typeof loc.street_address === "string" &&
+          loc.street_address.toLowerCase().includes(streetLower)
+        );
+      });
+    }
+
+    if (area) {
+      const areaLower = area.toLowerCase();
+      results = results.filter((p) => {
+        const loc = p.location_id;
+        return (
+          loc &&
+          typeof loc.area_name === "string" &&
+          loc.area_name.toLowerCase().includes(areaLower)
+        );
+      });
+    }
+
+    if (city) {
+      const cityLower = city.toLowerCase();
+      results = results.filter((p) => {
+        const loc = p.location_id;
+        return (
+          loc && typeof loc.city === "string" && loc.city.toLowerCase() === cityLower
+        );
+      });
+    }
+
+    if (postalCode) {
+      const postalLower = postalCode.toLowerCase();
+      results = results.filter((p) => {
+        const loc = p.location_id;
+        return (
+          loc &&
+          typeof loc.postal_code === "string" &&
+          loc.postal_code.toLowerCase() === postalLower
+        );
+      });
+    }
+
+    const minLat = parseNumber(req.query.minLat, "minLat");
+    const maxLat = parseNumber(req.query.maxLat, "maxLat");
+    const minLon = parseNumber(req.query.minLon, "minLon");
+    const maxLon = parseNumber(req.query.maxLon, "maxLon");
+
+    if (
+      minLat !== undefined ||
+      maxLat !== undefined ||
+      minLon !== undefined ||
+      maxLon !== undefined
+    ) {
+      results = results.filter((p) => {
+        const loc = p.location_id;
+        if (!loc) return false;
+        const { latitude, longitude } = loc;
+        if (latitude === undefined || longitude === undefined) return false;
+        if (minLat !== undefined && latitude < minLat) return false;
+        if (maxLat !== undefined && latitude > maxLat) return false;
+        if (minLon !== undefined && longitude < minLon) return false;
+        if (maxLon !== undefined && longitude > maxLon) return false;
+        return true;
+      });
+    }
+
+    const centerLat = parseNumber(req.query.centerLat, "centerLat");
+    const centerLon = parseNumber(req.query.centerLon, "centerLon");
+    const radiusKm = parseNumber(req.query.radiusKm, "radiusKm");
+
+    if (centerLat !== undefined && centerLon !== undefined) {
+      results = results
+        .map((p) => {
+          const loc = p.location_id;
+          if (!loc || loc.latitude === undefined || loc.longitude === undefined) {
+            return p;
+          }
+          const distanceKm = calculateDistanceKm(
+            centerLat,
+            centerLon,
+            loc.latitude,
+            loc.longitude
+          );
+          return { ...p, distance_km: distanceKm };
+        })
+        .filter((p) => {
+          if (radiusKm === undefined || p.distance_km === undefined) return true;
+          return p.distance_km <= radiusKm;
+        });
+
+      if (sortBy === "distance") {
+        results.sort((a, b) => {
+          const aDist = a.distance_km ?? Number.POSITIVE_INFINITY;
+          const bDist = b.distance_km ?? Number.POSITIVE_INFINITY;
+          if (aDist === bDist) return 0;
+          return aDist < bDist ? sortDirection * -1 : sortDirection;
+        });
+      }
+    }
+
+    res.status(200).json(results);
   } catch (error) {
     console.error("Error fetching properties:", error);
+    if (error.statusCode) {
+      return res.status(error.statusCode).json({ error: error.message });
+    }
     res.status(500).json({ error: "Server error" });
   }
 };
@@ -178,7 +360,6 @@ const updateProperty = async (req, res) => {
       cover_image_url,
       rent,
       location_id,
-      status,
       user_id,
       property_types_id,
       is_active,
@@ -218,7 +399,6 @@ const updateProperty = async (req, res) => {
       updates.cover_image_url = cover_image_url?.trim?.() ? cover_image_url.trim() : cover_image_url;
     }
     if (rent !== undefined) updates.rent = rent;
-    if (status !== undefined) updates.status = status;
     if (typeof is_active === "boolean") updates.is_active = is_active;
 
     const validationPromises = [];
@@ -235,10 +415,6 @@ const updateProperty = async (req, res) => {
         validateObjectId(PropertyType, property_types_id, "Property type")
       );
       updates.property_types_id = property_types_id;
-    }
-    if (status) {
-      validationPromises.push(validateObjectId(Status, status, "Status"));
-      updates.status = status;
     }
 
     await Promise.all(validationPromises);
