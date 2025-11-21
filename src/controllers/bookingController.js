@@ -99,17 +99,16 @@ const updatePropertyStatusIfNeeded = async (propertyDoc, targetStatusDoc) => {
 // Create booking
 const createBooking = async (req, res) => {
   try {
-    const { property_id, user_id, start_date, end_date, is_active } = req.body;
+    const { property_id, start_date, end_date, is_active } = req.body;
 
     const currentUserId = getCurrentUserIdFromReq(req);
-    const isAdmin = req.isAdmin;
     const isRoomSeeker = req.isRoomSeeker;
 
-    if (!isAdmin && !isRoomSeeker) {
+    if (!isRoomSeeker) {
       return res.status(403).json({ error: "Only room seekers can create bookings" });
     }
 
-    const effectiveUserId = isAdmin ? user_id || currentUserId : currentUserId;
+    const effectiveUserId = currentUserId;
 
     if (!property_id || !start_date || !end_date) {
       return res.status(400).json({
