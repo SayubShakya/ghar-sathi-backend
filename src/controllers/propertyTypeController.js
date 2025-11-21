@@ -32,9 +32,26 @@ const getAllPropertyTypes = async (req, res) => {
   try {
     const includeInactive = req.query.includeInactive === "true";
     const filter = includeInactive ? {} : { is_active: true };
+    const page = parseInt(req.query.page, 10) || 1;
+    const limit = parseInt(req.query.limit, 10) || 10;
+    const safePage = page < 1 ? 1 : page;
+    const safeLimit = limit < 1 ? 10 : limit;
+    const skip = (safePage - 1) * safeLimit;
 
-    const propertyTypes = await PropertyType.find(filter).sort({ created_date: -1 });
-    res.status(200).json(propertyTypes);
+    const [total, propertyTypes] = await Promise.all([
+      PropertyType.countDocuments(filter),
+      PropertyType.find(filter).sort({ created_date: -1 }).skip(skip).limit(safeLimit),
+    ]);
+
+    const totalPages = Math.ceil(total / safeLimit) || 1;
+
+    res.status(200).json({
+      data: propertyTypes,
+      page: safePage,
+      limit: safeLimit,
+      total,
+      totalPages,
+    });
   } catch (error) {
     console.error("Error fetching property types:", error);
     res.status(500).json({ error: "Server error" });

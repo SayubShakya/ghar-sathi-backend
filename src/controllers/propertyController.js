@@ -299,7 +299,22 @@ const getAllProperties = async (req, res) => {
       }
     }
 
-    res.status(200).json(results);
+    const page = parseInt(req.query.page, 10) || 1;
+    const limit = parseInt(req.query.limit, 10) || 10;
+    const safePage = page < 1 ? 1 : page;
+    const safeLimit = limit < 1 ? 10 : limit;
+    const total = results.length;
+    const totalPages = Math.ceil(total / safeLimit) || 1;
+    const startIndex = (safePage - 1) * safeLimit;
+    const paginatedResults = results.slice(startIndex, startIndex + safeLimit);
+
+    res.status(200).json({
+      data: paginatedResults,
+      page: safePage,
+      limit: safeLimit,
+      total,
+      totalPages,
+    });
   } catch (error) {
     console.error("Error fetching properties:", error);
     if (error.statusCode) {
@@ -309,7 +324,6 @@ const getAllProperties = async (req, res) => {
   }
 };
 
-// Get property by ID
 const getPropertyById = async (req, res) => {
   try {
     const includeInactive = req.query.includeInactive === "true";

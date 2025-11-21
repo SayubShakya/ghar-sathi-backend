@@ -209,8 +209,22 @@ const getAllBookings = async (req, res) => {
         return currentUserId && propertyOwnerId === currentUserId;
       });
     }
+    const page = parseInt(req.query.page, 10) || 1;
+    const limit = parseInt(req.query.limit, 10) || 10;
+    const safePage = page < 1 ? 1 : page;
+    const safeLimit = limit < 1 ? 10 : limit;
+    const total = filteredBookings.length;
+    const totalPages = Math.ceil(total / safeLimit) || 1;
+    const startIndex = (safePage - 1) * safeLimit;
+    const paginatedBookings = filteredBookings.slice(startIndex, startIndex + safeLimit);
 
-    res.status(200).json(filteredBookings);
+    res.status(200).json({
+      data: paginatedBookings,
+      page: safePage,
+      limit: safeLimit,
+      total,
+      totalPages,
+    });
   } catch (error) {
     console.error("Error fetching bookings:", error);
     res.status(500).json({ error: "Server error" });
