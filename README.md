@@ -6,10 +6,13 @@ A Node.js backend application for Ghar Sathi, built with Express.js and MongoDB.
 
 - User registration and authentication (JWT)
 - User profile management
-- RESTful API endpoints
+- Role-based access control (ADMIN, LANDLORD, ROOM_SEEKER, etc.)
+- Property, booking, location, status, role, and user management
+- Flexible property search with filtering and sorting
+- Pagination on all list endpoints (roles, users, locations, property types, statuses, properties, bookings)
 - Secure password hashing
 - Environment variable configuration
-- CORS enabled
+- CORS enabled with configurable allowed origins
 
 ## Tech Stack
 
@@ -44,6 +47,10 @@ A Node.js backend application for Ghar Sathi, built with Express.js and MongoDB.
    MONGODB_URI=your_mongodb_connection_string
    JWT_SECRET=your_jwt_secret_key
    JWT_EXPIRATION=24h
+   # Optional: comma-separated list of allowed browser origins.
+   # If omitted or empty, all origins are allowed (useful in development).
+   # Example: CORS_ORIGINS=http://localhost:3000,https://app.gharsathi.com
+   CORS_ORIGINS=
    ```
 
 4. Start the development server:
@@ -56,7 +63,29 @@ A Node.js backend application for Ghar Sathi, built with Express.js and MongoDB.
 - `PORT` - Port on which the server will run (default: 5000)
 - `MONGODB_URI` - MongoDB connection string
 - `JWT_SECRET` - Secret key for JWT token generation
-- `JWT_EXPIRATION` - JWT token expiration time (e.g., '24h')
+- `JWT_EXPIRATION` - JWT token expiration time (e.g., `24h`)
+- `CORS_ORIGINS` - (Optional) Comma-separated list of allowed browser origins.
+  - When empty or not set, all origins are allowed (development friendly).
+  - When set, only listed origins are allowed in browsers. Requests without an `Origin` header (mobile apps, Postman, curl) are always allowed.
+
+## Pagination
+
+- All list endpoints support pagination via query parameters:
+  - `page` (default: `1`)
+  - `limit` (default: `10`)
+- The response shape is:
+
+  ```json
+  {
+    "data": [ /* items for this page */ ],
+    "page": 1,
+    "limit": 10,
+    "total": 123,
+    "totalPages": 13
+  }
+  ```
+
+Use `page` and `limit` from your mobile app or frontend to fetch slices of large datasets safely and efficiently.
 
 
 ## Project Structure
