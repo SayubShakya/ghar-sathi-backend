@@ -3,6 +3,7 @@ const Location = require("../models/locationModel");
 const PropertyType = require("../models/propertyTypeModel");
 const User = require("../models/userModel");
 const Status = require("../models/statusModel");
+const { PropertyResponseDTO } = require("../dto/propertyDto");
 
 const getCurrentUserIdFromReq = (req) => {
   if (!req || !req.user || !req.user._id) {
@@ -73,7 +74,8 @@ const createProperty = async (req, res) => {
       detailed_description,
       cover_image_url,
       rent,
-      location_id,
+      location_id: bodyLocationId,
+      location,
       user_id,
       property_types_id,
       is_active,
@@ -83,18 +85,57 @@ const createProperty = async (req, res) => {
     const currentUserId = getCurrentUserIdFromReq(req);
     const ownerId = isAdmin ? (user_id || currentUserId) : currentUserId;
 
-    if (!property_title || !rent || !location_id || !ownerId || !property_types_id) {
+    const hasNestedLocation = !!location;
+
+    if (!property_title || !rent || !ownerId || !property_types_id || (!hasNestedLocation && !bodyLocationId)) {
       return res.status(400).json({
         error:
-          "property_title, rent, location_id, user_id, and property_types_id are required",
+          "property_title, rent, location (or location_id), user_id, and property_types_id are required",
       });
     }
 
-    await Promise.all([
-      validateObjectId(Location, location_id, "Location"),
+    let finalLocationId = bodyLocationId;
+
+    if (hasNestedLocation) {
+      const {
+        street_address,
+        area_name,
+        city,
+        postal_code,
+        latitude,
+        longitude,
+        is_active: location_is_active,
+      } = location;
+
+      if (!street_address || !city || latitude === undefined || longitude === undefined) {
+        return res.status(400).json({
+          error: "street_address, city, latitude, and longitude are required for location",
+        });
+      }
+
+      const createdLocation = await Location.create({
+        street_address: street_address.trim(),
+        area_name: area_name?.trim?.() ? area_name.trim() : area_name,
+        city: city.trim(),
+        postal_code: postal_code?.trim?.() ? postal_code.trim() : postal_code,
+        latitude,
+        longitude,
+        is_active: location_is_active,
+      });
+
+      finalLocationId = createdLocation._id;
+    }
+
+    const validationPromises = [
       validateObjectId(User, ownerId, "User"),
       validateObjectId(PropertyType, property_types_id, "Property type"),
-    ]);
+    ];
+
+    if (!hasNestedLocation && finalLocationId) {
+      validationPromises.push(validateObjectId(Location, finalLocationId, "Location"));
+    }
+
+    await Promise.all(validationPromises);
 
     const availableStatus = await findStatusByName("AVAILABLE");
 
@@ -105,7 +146,7 @@ const createProperty = async (req, res) => {
         : detailed_description,
       cover_image_url: cover_image_url?.trim?.() ? cover_image_url.trim() : cover_image_url,
       rent,
-      location_id,
+      location_id: finalLocationId,
       status: availableStatus._id,
       user_id: ownerId,
       property_types_id,
@@ -121,7 +162,7 @@ const createProperty = async (req, res) => {
 
     res.status(201).json({
       message: "Property created successfully",
-      property,
+      property: PropertyResponseDTO(property),
     });
   } catch (error) {
     console.error("Error creating property:", error);
@@ -307,9 +348,10 @@ const getAllProperties = async (req, res) => {
     const totalPages = Math.ceil(total / safeLimit) || 1;
     const startIndex = (safePage - 1) * safeLimit;
     const paginatedResults = results.slice(startIndex, startIndex + safeLimit);
+    const dtoResults = paginatedResults.map((p) => PropertyResponseDTO(p));
 
     res.status(200).json({
-      data: paginatedResults,
+      data: dtoResults,
       page: safePage,
       limit: safeLimit,
       total,
@@ -358,7 +400,7 @@ const getPropertyById = async (req, res) => {
       }
     }
 
-    res.status(200).json(property);
+    res.status(200).json(PropertyResponseDTO(property));
   } catch (error) {
     console.error("Error fetching property:", error);
     res.status(500).json({ error: "Server error" });
@@ -377,6 +419,7 @@ const updateProperty = async (req, res) => {
       user_id,
       property_types_id,
       is_active,
+      location,
     } = req.body;
 
     const existingProperty = await Property.findById(req.params.id);
@@ -416,10 +459,42 @@ const updateProperty = async (req, res) => {
     if (typeof is_active === "boolean") updates.is_active = is_active;
 
     const validationPromises = [];
-    if (location_id) {
+
+    if (location) {
+      const {
+        street_address,
+        area_name,
+        city,
+        postal_code,
+        latitude,
+        longitude,
+        is_active: location_is_active,
+      } = location;
+
+      const locationUpdate = {};
+      if (street_address !== undefined) locationUpdate.street_address = street_address;
+      if (area_name !== undefined) locationUpdate.area_name = area_name;
+      if (city !== undefined) locationUpdate.city = city;
+      if (postal_code !== undefined) locationUpdate.postal_code = postal_code;
+      if (latitude !== undefined) locationUpdate.latitude = latitude;
+      if (longitude !== undefined) locationUpdate.longitude = longitude;
+      if (typeof location_is_active === "boolean") locationUpdate.is_active = location_is_active;
+
+      if (existingProperty.location_id) {
+        await Location.findByIdAndUpdate(
+          existingProperty.location_id,
+          { $set: locationUpdate },
+          { new: true, runValidators: true }
+        );
+      } else {
+        const createdLocation = await Location.create(locationUpdate);
+        updates.location_id = createdLocation._id;
+      }
+    } else if (location_id) {
       validationPromises.push(validateObjectId(Location, location_id, "Location"));
       updates.location_id = location_id;
     }
+
     if (user_id && req.isAdmin) {
       validationPromises.push(validateObjectId(User, user_id, "User"));
       updates.user_id = user_id;
@@ -449,7 +524,7 @@ const updateProperty = async (req, res) => {
 
     res.status(200).json({
       message: "Property updated successfully",
-      property,
+      property: PropertyResponseDTO(property),
     });
   } catch (error) {
     console.error("Error updating property:", error);
