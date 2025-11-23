@@ -99,7 +99,54 @@ const login = async (req, res) => {
   }
 };
 
+// Separate token generation API using email and password
+const generateTokenWithCredentials = async (req, res) => {
+  try {
+    const { email_address, password } = req.body;
+
+    if (!email_address || !password) {
+      return res.status(400).json({ error: "Email and password are required" });
+    }
+
+    const normalizedEmail = email_address.toLowerCase().trim();
+
+    const user = await User.findOne({ email_address: normalizedEmail }).select(
+      "+password_hash"
+    );
+
+    if (!user || !user.is_active) {
+      return res.status(401).json({ error: "Invalid email or password" });
+    }
+
+    const isMatch = await user.comparePassword(password);
+    if (!isMatch) {
+      return res.status(401).json({ error: "Invalid email or password" });
+    }
+
+    const roleId = user.role_id?.toString?.() || user.role_id;
+
+    const payload = {
+      user_id: user._id.toString(),
+      role_id: roleId,
+    };
+
+    const token = jwt.sign(payload, config.JWT_SECRET, {
+      expiresIn: config.JWT_EXPIRATION,
+    });
+
+    res.status(200).json({
+      user_id: payload.user_id,
+      role_id: payload.role_id,
+      token,
+    });
+  } catch (error) {
+    console.error("Error generating token with credentials:", error);
+    res.status(500).json({ error: "Server error. Please try again later." });
+  }
+};
+
 module.exports = {
   register,
-  login
+  login,
+  generateTokenWithCredentials,
 };
