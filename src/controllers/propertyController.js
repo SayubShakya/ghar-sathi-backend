@@ -107,17 +107,20 @@ const createProperty = async (req, res) => {
         is_active: location_is_active,
       } = location;
 
-      if (!street_address || !city || latitude === undefined || longitude === undefined) {
+      if (!city || latitude === undefined || longitude === undefined) {
         return res.status(400).json({
-          error: "street_address, city, latitude, and longitude are required for location",
+          error: "city, latitude, and longitude are required for location",
         });
       }
 
+      const normalizedStreet = street_address?.trim?.() || null;
+      const normalizedPostal = postal_code?.trim?.() || null;
+
       const createdLocation = await Location.create({
-        street_address: street_address.trim(),
+        street_address: normalizedStreet,
         area_name: area_name?.trim?.() ? area_name.trim() : area_name,
         city: city.trim(),
-        postal_code: postal_code?.trim?.() ? postal_code.trim() : postal_code,
+        postal_code: normalizedPostal,
         latitude,
         longitude,
         is_active: location_is_active,
@@ -472,10 +475,14 @@ const updateProperty = async (req, res) => {
       } = location;
 
       const locationUpdate = {};
-      if (street_address !== undefined) locationUpdate.street_address = street_address;
+      if (street_address !== undefined) {
+        locationUpdate.street_address = street_address?.trim?.() || null;
+      }
       if (area_name !== undefined) locationUpdate.area_name = area_name;
       if (city !== undefined) locationUpdate.city = city;
-      if (postal_code !== undefined) locationUpdate.postal_code = postal_code;
+      if (postal_code !== undefined) {
+        locationUpdate.postal_code = postal_code?.trim?.() || null;
+      }
       if (latitude !== undefined) locationUpdate.latitude = latitude;
       if (longitude !== undefined) locationUpdate.longitude = longitude;
       if (typeof location_is_active === "boolean") locationUpdate.is_active = location_is_active;

@@ -4,7 +4,6 @@ const locationSchema = new mongoose.Schema(
   {
     street_address: {
       type: String,
-      required: [true, "Street address is required"],
       trim: true,
       minlength: [3, "Street address must be at least 3 characters"],
     },
