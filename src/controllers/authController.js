@@ -46,13 +46,8 @@ const register = async (req, res, next) => {
 
     await user.populate("role_id", "name");
 
-    const token = jwt.sign({ id: user._id }, config.JWT_SECRET, {
-      expiresIn: config.JWT_EXPIRATION,
-    });
-
     res.status(201).json({
       message: "User registered successfully",
-      token,
       user: formatUserWithRole(user),
     });
   } catch (error) {
