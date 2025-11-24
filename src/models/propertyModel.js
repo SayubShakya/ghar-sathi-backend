@@ -12,9 +12,9 @@ const propertySchema = new mongoose.Schema(
       type: String,
       trim: true,
     },
-    cover_image_url: {
-      type: String,
-      trim: true,
+    image_id: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "images",
     },
     rent: {
       type: Number,
@@ -26,7 +26,7 @@ const propertySchema = new mongoose.Schema(
       ref: "Location",
       required: [true, "Location is required"],
     },
-    status: {
+    status_id: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Status",
       required: [true, "Status is required"],

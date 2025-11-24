@@ -3,6 +3,8 @@ const Location = require("../models/locationModel");
 const PropertyType = require("../models/propertyTypeModel");
 const User = require("../models/userModel");
 const Status = require("../models/statusModel");
+const { ImageModel } = require("../models/imageModel");
+
 const { PropertyResponseDTO } = require("../dto/propertyDto");
 
 const getCurrentUserIdFromReq = (req) => {
@@ -72,7 +74,7 @@ const createProperty = async (req, res) => {
     const {
       property_title,
       detailed_description,
-      cover_image_url,
+      image_id,
       rent,
       location_id: bodyLocationId,
       location,
@@ -134,6 +136,10 @@ const createProperty = async (req, res) => {
       validateObjectId(PropertyType, property_types_id, "Property type"),
     ];
 
+    if (image_id) {
+      validationPromises.push(validateObjectId(ImageModel, image_id, "Image"));
+    }
+
     if (!hasNestedLocation && finalLocationId) {
       validationPromises.push(validateObjectId(Location, finalLocationId, "Location"));
     }
@@ -147,10 +153,10 @@ const createProperty = async (req, res) => {
       detailed_description: detailed_description?.trim?.()
         ? detailed_description.trim()
         : detailed_description,
-      cover_image_url: cover_image_url?.trim?.() ? cover_image_url.trim() : cover_image_url,
+      image_id,
       rent,
       location_id: finalLocationId,
-      status: availableStatus._id,
+      status_id: availableStatus._id,
       user_id: ownerId,
       property_types_id,
       is_active,
@@ -160,7 +166,7 @@ const createProperty = async (req, res) => {
       { path: "location_id" },
       { path: "user_id", select: "first_name last_name email_address" },
       { path: "property_types_id" },
-      { path: "status" },
+      { path: "image_id" },
     ]);
 
     res.status(201).json({
@@ -213,7 +219,7 @@ const getAllProperties = async (req, res) => {
 
     if (req.query.status) {
       const statusDoc = await findStatusByName(req.query.status);
-      filter.status = statusDoc._id;
+      filter.status_id = statusDoc._id;
     }
 
     const sortBy = (req.query.sortBy || "").toLowerCase();
@@ -229,7 +235,7 @@ const getAllProperties = async (req, res) => {
       .populate({ path: "location_id" })
       .populate({ path: "user_id", select: "first_name last_name email_address" })
       .populate({ path: "property_types_id" })
-      .populate({ path: "status" })
+      .populate({ path: "image_id" })
       .sort(sort);
 
     let results = properties.map((p) => p.toObject());
@@ -369,6 +375,7 @@ const getAllProperties = async (req, res) => {
   }
 };
 
+// Get property by ID
 const getPropertyById = async (req, res) => {
   try {
     const includeInactive = req.query.includeInactive === "true";
@@ -381,7 +388,7 @@ const getPropertyById = async (req, res) => {
       .populate({ path: "location_id" })
       .populate({ path: "user_id", select: "first_name last_name email_address" })
       .populate({ path: "property_types_id" })
-      .populate({ path: "status" });
+      .populate({ path: "image_id" });
 
     if (!property) {
       return res.status(404).json({ error: "Property not found" });
@@ -416,7 +423,7 @@ const updateProperty = async (req, res) => {
     const {
       property_title,
       detailed_description,
-      cover_image_url,
+      image_id,
       rent,
       location_id,
       user_id,
@@ -455,13 +462,17 @@ const updateProperty = async (req, res) => {
         ? detailed_description.trim()
         : detailed_description;
     }
-    if (cover_image_url !== undefined) {
-      updates.cover_image_url = cover_image_url?.trim?.() ? cover_image_url.trim() : cover_image_url;
-    }
-    if (rent !== undefined) updates.rent = rent;
-    if (typeof is_active === "boolean") updates.is_active = is_active;
 
     const validationPromises = [];
+    if (image_id !== undefined) {
+      if (image_id) {
+        validationPromises.push(validateObjectId(ImageModel, image_id, "Image"));
+      }
+      updates.image_id = image_id || null;
+    }
+
+    if (rent !== undefined) updates.rent = rent;
+    if (typeof is_active === "boolean") updates.is_active = is_active;
 
     if (location) {
       const {
@@ -522,8 +533,7 @@ const updateProperty = async (req, res) => {
     )
       .populate({ path: "location_id" })
       .populate({ path: "user_id", select: "first_name last_name email_address" })
-      .populate({ path: "property_types_id" })
-      .populate({ path: "status" });
+      .populate({ path: "property_types_id" });
 
     if (!property) {
       return res.status(404).json({ error: "Property not found" });

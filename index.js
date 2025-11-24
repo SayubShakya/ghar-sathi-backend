@@ -36,6 +36,7 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 app.use(express.json());
+app.use("/uploads", express.static("uploads"));
 
 // Routes
 const authRoutes = require("./src/routes/authRoutes");
@@ -46,6 +47,7 @@ const propertyTypeRoutes = require("./src/routes/propertyTypeRoutes");
 const propertyRoutes = require("./src/routes/propertyRoutes");
 const statusRoutes = require("./src/routes/statusRoutes");
 const bookingRoutes = require("./src/routes/bookingRoutes");
+const imageRoutes = require("./src/routes/imageRoutes");
 
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
@@ -55,6 +57,7 @@ app.use("/api/property-types", propertyTypeRoutes);
 app.use("/api/properties", propertyRoutes);
 app.use("/api/statuses", statusRoutes);
 app.use("/api/bookings", bookingRoutes);
+app.use("/api/images", imageRoutes);
 
 // 404 handler (must be before error handler)
 app.use((req, res) => {
