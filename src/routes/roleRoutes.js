@@ -10,7 +10,7 @@ const { protect, authorizeRoles } = require("../middleware/authMiddleware");
 
 const router = express.Router();
 
-router.get("/", protect, authorizeRoles("ADMIN"), getAllRoles);
+router.get("/", getAllRoles);
 router.get("/:id", protect, authorizeRoles("ADMIN"), getRoleById);
 router.post("/", protect, authorizeRoles("ADMIN"), createRole);
 router.patch("/:id", protect, authorizeRoles("ADMIN"), updateRole);
