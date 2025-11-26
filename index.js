@@ -1,6 +1,7 @@
 // index.js
 const express = require("express");
 const cors = require("cors");
+const path = require("path");
 const config = require("./src/configs/config");
 const db = require("./src/configs/db");
 const errorHandler = require("./src/middleware/errorMiddleware");
@@ -36,7 +37,7 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 app.use(express.json());
-app.use("/uploads", express.static("uploads"));
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 // Routes
 const authRoutes = require("./src/routes/authRoutes");

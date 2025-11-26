@@ -7,14 +7,14 @@ const { ImageModel } = require("../models/imageModel");
 
 const { PropertyResponseDTO } = require("../dto/propertyDto");
 
-const getCurrentUserIdFromReq = (req) => {
+function getCurrentUserIdFromReq(req) {
   if (!req || !req.user || !req.user._id) {
     return null;
   }
   return req.user._id.toString();
-};
+}
 
-const validateObjectId = async (Model, id, label) => {
+async function validateObjectId(Model, id, label) {
   if (!id) {
     throw new Error(`${label} is required`);
   }
@@ -25,9 +25,9 @@ const validateObjectId = async (Model, id, label) => {
     error.statusCode = 404;
     throw error;
   }
-};
+}
 
-const findStatusByName = async (name) => {
+async function findStatusByName(name) {
   const doc = await Status.findOne({ name: new RegExp("^" + name + "$", "i") }).select(
     "_id name"
   );
@@ -37,12 +37,13 @@ const findStatusByName = async (name) => {
     throw error;
   }
   return doc;
-};
+}
 
-const parseNumber = (value, label) => {
+function parseNumber(value, label) {
   if (value === undefined || value === null || value === "") {
     return undefined;
   }
+
   const num = Number(value);
   if (!Number.isFinite(num)) {
     const error = new Error(`${label} must be a valid number`);
@@ -50,26 +51,28 @@ const parseNumber = (value, label) => {
     throw error;
   }
   return num;
-};
+}
 
-const toRadians = (deg) => (deg * Math.PI) / 180;
+function toRadians(deg) {
+  return (deg * Math.PI) / 180;
+}
 
-const calculateDistanceKm = (lat1, lon1, lat2, lon2) => {
+function calculateDistanceKm(lat1, lon1, lat2, lon2) {
   const R = 6371; // Earth radius in km
   const dLat = toRadians(lat2 - lat1);
   const dLon = toRadians(lon2 - lon1);
+
   const a =
     Math.sin(dLat / 2) * Math.sin(dLat / 2) +
     Math.cos(toRadians(lat1)) *
       Math.cos(toRadians(lat2)) *
-      Math.sin(dLon / 2) *
-      Math.sin(dLon / 2);
+      Math.sin(dLon / 2) * Math.sin(dLon / 2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return R * c;
-};
+}
 
 // Create property
-const createProperty = async (req, res) => {
+async function createProperty(req, res) {
   try {
     const {
       property_title,
@@ -188,10 +191,10 @@ const createProperty = async (req, res) => {
       .status(error.statusCode)
       .json({ error: error.message || "Server error" });
   }
-};
+}
 
 // Get all properties
-const getAllProperties = async (req, res) => {
+async function getAllProperties(req, res) {
   try {
     const includeInactive = req.query.includeInactive === "true";
     const filter = includeInactive ? {} : { is_active: true };
@@ -373,10 +376,10 @@ const getAllProperties = async (req, res) => {
     }
     res.status(500).json({ error: "Server error" });
   }
-};
+}
 
 // Get property by ID
-const getPropertyById = async (req, res) => {
+async function getPropertyById(req, res) {
   try {
     const includeInactive = req.query.includeInactive === "true";
     const filter = { _id: req.params.id };
@@ -415,10 +418,10 @@ const getPropertyById = async (req, res) => {
     console.error("Error fetching property:", error);
     res.status(500).json({ error: "Server error" });
   }
-};
+}
 
 // Update property
-const updateProperty = async (req, res) => {
+async function updateProperty(req, res) {
   try {
     const {
       property_title,
@@ -553,10 +556,10 @@ const updateProperty = async (req, res) => {
     }
     res.status(error.statusCode).json({ error: error.message || "Server error" });
   }
-};
+}
 
 // Soft delete property
-const deleteProperty = async (req, res) => {
+async function deleteProperty(req, res) {
   try {
     const property = await Property.findById(req.params.id);
 
@@ -592,7 +595,7 @@ const deleteProperty = async (req, res) => {
     console.error("Error deleting property:", error);
     res.status(500).json({ error: "Server error" });
   }
-};
+}
 
 module.exports = {
   createProperty,
