@@ -10,10 +10,10 @@ const { protect, authorizeRoles } = require("../middleware/authMiddleware");
 
 const router = express.Router();
 
-router.get("/", protect, authorizeRoles("ADMIN"), getAllLocations);
-router.get("/:id", protect, authorizeRoles("ADMIN"), getLocationById);
-router.post("/", protect, authorizeRoles("ADMIN"), createLocation);
-router.patch("/:id", protect, authorizeRoles("ADMIN"), updateLocation);
-router.delete("/:id", protect, authorizeRoles("ADMIN"), deleteLocation);
+router.get("/", protect, authorizeRoles("ADMIN", "LANDLORD"), getAllLocations);
+router.get("/:id", protect, authorizeRoles("ADMIN", "LANDLORD"), getLocationById);
+router.post("/", protect, authorizeRoles("ADMIN", "LANDLORD"), createLocation);
+router.patch("/:id", protect, authorizeRoles("ADMIN", "LANDLORD"), updateLocation);
+router.delete("/:id", protect, authorizeRoles("ADMIN", "LANDLORD"), deleteLocation);
 
 module.exports = router;

@@ -43,7 +43,7 @@ console.log({decoded});
     //   // console.log("user not found in database");
     // }
  
-    // attachRoleFlags(req, user);
+    attachRoleFlags(req, user);
 
     next();
   } catch (error) {

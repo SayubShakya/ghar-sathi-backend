@@ -199,14 +199,6 @@ async function getAllProperties(req, res) {
     const includeInactive = req.query.includeInactive === "true";
     const filter = includeInactive ? {} : { is_active: true };
 
-    if (req.isLandlord && !req.isAdmin) {
-      const currentUserId = getCurrentUserIdFromReq(req);
-      if (!currentUserId) {
-        return res.status(401).json({ error: "Not authorized" });
-      }
-      filter.user_id = currentUserId;
-    }
-
     const minRent = parseNumber(req.query.minRent, "minRent");
     const maxRent = parseNumber(req.query.maxRent, "maxRent");
 
@@ -395,22 +387,6 @@ async function getPropertyById(req, res) {
 
     if (!property) {
       return res.status(404).json({ error: "Property not found" });
-    }
-
-    if (req.isLandlord && !req.isAdmin) {
-      const currentUserId = getCurrentUserIdFromReq(req);
-      if (!currentUserId) {
-        return res.status(401).json({ error: "Not authorized" });
-      }
-      const ownerId =
-        property.user_id && property.user_id._id
-          ? property.user_id._id.toString()
-          : property.user_id?.toString?.();
-      if (!ownerId || ownerId !== currentUserId) {
-        return res
-          .status(403)
-          .json({ error: "You are not allowed to access this property" });
-      }
     }
 
     res.status(200).json(PropertyResponseDTO(property));
