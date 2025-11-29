@@ -5,12 +5,26 @@ const config = require("../configs/config");
 const normalizeRoleName = (roleName) => (roleName || "").trim().toUpperCase();
 
 const attachRoleFlags = (req, user) => {
-  const rawRoleName = user?.role_id && typeof user.role_id === "object" ? user.role_id.name : null;
+  // Handle missing user defensively so we never crash auth middleware
+  if (!user) {
+    req.user = null;
+    req.userRoleName = null;
+    req.userRoleId = null;
+    req.isAdmin = false;
+    req.isSuperAdmin = false;
+    req.isLandlord = false;
+    req.isRoomSeeker = false;
+    return;
+  }
+
+  const rawRoleName =
+    user.role_id && typeof user.role_id === "object" ? user.role_id.name : null;
   const roleName = normalizeRoleName(rawRoleName);
 
   req.user = user;
   req.userRoleName = roleName;
-  req.userRoleId = user?.role_id && typeof user.role_id === "object" ? user.role_id._id : user.role_id;
+  req.userRoleId =
+    user.role_id && typeof user.role_id === "object" ? user.role_id._id : user.role_id;
   req.isAdmin = roleName === "ADMIN" || roleName === "SUPER_ADMIN";
   req.isSuperAdmin = roleName === "SUPER_ADMIN";
   req.isLandlord = roleName === "LANDLORD";
@@ -32,17 +46,23 @@ const protect = async (req, res, next) => {
     } catch (err) {
       return res.status(401).json({ error: "Not authorized, token invalid" });
     }
-console.log({decoded});
+    console.log({ decoded });
 
-    const user = await User.findById(decoded.id)
-    .populate("role_id", "name");
-//  console.log('👤 User found:', user ? 'YES' : 'NO');
-//     console.log('🔓 User active:', user?.is_active);   
-    //  if (!user || !user.is_active) {
-    //   return res.status(401).json({ error: "Not authorized, user not found or inactive" });
-    //   // console.log("user not found in database");
-    // }
- 
+    // Your JWT payload uses user_id (and role_id), not id
+    const userId = decoded.id || decoded.user_id;
+    if (!userId) {
+      return res
+        .status(401)
+        .json({ error: "Not authorized, user id missing in token" });
+    }
+
+    const user = await User.findById(userId).populate("role_id", "name");
+    if (!user) {
+      return res
+        .status(401)
+        .json({ error: "Not authorized, user not found" });
+    }
+
     attachRoleFlags(req, user);
 
     next();
@@ -74,7 +94,38 @@ const authorizeRoles = (...allowedRoles) => {
   };
 };
 
+const allowSelfOrRoles = (...allowedRoles) => {
+  const normalizedAllowed = allowedRoles.map(normalizeRoleName);
+
+  return (req, res, next) => {
+    if (!req.user) {
+      return res.status(401).json({ error: "Not authorized" });
+    }
+
+    if (req.isAdmin) {
+      return next();
+    }
+
+    const paramId = req.params && req.params.id ? req.params.id.toString() : null;
+    const currentUserId =
+      req.user && req.user._id ? req.user._id.toString() : null;
+
+    if (paramId && currentUserId && paramId === currentUserId) {
+      return next();
+    }
+
+    const userRole = req.userRoleName;
+
+    if (!normalizedAllowed.length || normalizedAllowed.includes(userRole)) {
+      return next();
+    }
+
+    return res.status(403).json({ error: "Forbidden: insufficient permissions" });
+  };
+};
+
 module.exports = {
   protect,
   authorizeRoles,
+  allowSelfOrRoles,
 };
