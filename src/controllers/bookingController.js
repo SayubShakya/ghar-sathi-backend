@@ -52,7 +52,11 @@ const normalizeStatusName = (name) => (name || "").trim().toUpperCase();
 
 // Helper: ensure a property is currently AVAILABLE
 const ensurePropertyIsAvailable = (propertyDoc) => {
-  const currentStatusName = normalizeStatusName(propertyDoc?.status?.name);
+  const currentStatusName = normalizeStatusName(
+    propertyDoc && propertyDoc.status_id && typeof propertyDoc.status_id === "object"
+      ? propertyDoc.status_id.name
+      : null
+  );
   if (currentStatusName !== STATUS_AVAILABLE) {
     const error = new Error("This property is not available for booking.");
     error.statusCode = 400;
@@ -108,15 +112,15 @@ const updatePropertyStatusIfNeeded = async (propertyDoc, targetStatusDoc) => {
 
   // Get current status id from either populated object or raw id
   const currentId =
-    typeof propertyDoc.status === "object" && propertyDoc.status?._id
-      ? propertyDoc.status._id.toString()
-      : propertyDoc.status?.toString?.();
+    typeof propertyDoc.status_id === "object" && propertyDoc.status_id?._id
+      ? propertyDoc.status_id._id.toString()
+      : propertyDoc.status_id?.toString?.();
 
   // If already has that status, skip update
   if (currentId === targetStatusDoc._id.toString()) return;
 
   // Otherwise, update and save property
-  propertyDoc.status = targetStatusDoc._id;
+  propertyDoc.status_id = targetStatusDoc._id;
   await propertyDoc.save();
 };
 
@@ -158,8 +162,8 @@ const createBooking = async (req, res) => {
 
     // Fetch property with its status for availability check
     const propertyDoc = await Property.findById(property_id)
-      .select("rent status")
-      .populate({ path: "status", select: "name" });
+      .select("rent status_id")
+      .populate({ path: "status_id", select: "name" });
 
     if (!propertyDoc) {
       return res.status(404).json({ error: "Property not found" });
@@ -372,8 +376,8 @@ const updateBooking = async (req, res) => {
     // If property_id is changing, load the new property and verify availability
     if (property_id) {
       newPropertyDoc = await Property.findById(property_id)
-        .select("rent status")
-        .populate({ path: "status", select: "name" });
+        .select("rent status_id")
+        .populate({ path: "status_id", select: "name" });
       if (!newPropertyDoc) {
         return res.status(404).json({ error: "Property not found" });
       }
