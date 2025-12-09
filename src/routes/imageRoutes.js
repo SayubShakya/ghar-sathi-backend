@@ -40,7 +40,7 @@ router.post(
   "/upload-image",
   protect,
   authorizeRoles("LANDLORD"),
-  upload.single("image"),
+  upload.any(),
   uploadImage
 );
 

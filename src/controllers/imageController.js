@@ -9,12 +9,13 @@ const { ImageModel } = require("../models/imageModel");
 const uploadImage = async (req, res) => {
   try {
     // If Multer did not receive a file, return a 400 error
-    if (!req.file) {
+    const file = req.file || (Array.isArray(req.files) && req.files[0]);
+    if (!file) {
       return res.status(400).json({ error: "Image file is required" });
     }
 
     // Extract path and filename from the uploaded file object
-    const { path, filename } = req.file;
+    const { path, filename } = file;
 
     // Save a new image document in MongoDB with path and filename
     const image = await ImageModel.create({ path, filename });

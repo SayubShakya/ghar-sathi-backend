@@ -15,7 +15,7 @@ const { protect, authorizeRoles } = require("../middleware/authMiddleware");
 const router = express.Router();
 
 // GET /api/property-types/ -> get all property types (ADMIN only)
-router.get("/", protect, authorizeRoles("ADMIN"), getAllPropertyTypes);
+router.get("/", protect, authorizeRoles("ADMIN", "LANDLORD"), getAllPropertyTypes);
 
 // GET /api/property-types/:id -> get a single property type by id (ADMIN only)
 router.get("/:id", protect, authorizeRoles("ADMIN"), getPropertyTypeById);
